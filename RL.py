@@ -66,7 +66,10 @@ def BatchData(xtime_main, x_main, y_main, batch_size):
         
     return batches_xtime, batches_x, batches_y
 
-def BalanceData(batches_xtime, batches_x, batches_y):
+'''
+Because there are not frequent jumps in the labels across time steps, this function will sample datapoints to decrease training time.
+'''
+def BalanceData(xtime_main, x_main, y_main):
     pass
 
 def maxAction(Q, state, actions): #This function spits out the action with the highest value
