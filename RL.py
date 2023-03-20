@@ -69,26 +69,54 @@ def BatchData(xtime_main, x_main, y_main, batch_size):
 '''
 Because there are not frequent jumps in the labels across time steps, this function will sample datapoints to decrease training time.
 '''
-def BalanceData(xtime_main, x_main, y_main):
-    pass
+def SampleData(xtime_main, x_main, y_main, freq):
 
+    temp_time = []
+    tempx = []
+    tempy = []
+    sampled_x = []
+    sampled_y = []
+    sampled_time = []
+    for i in range(len(xtime_main)):
+        for j in range(len(xtime_main[i])):
+            if (j + 1) % freq == 0:
+                temp_time.append(xtime_main[i][j])
+                tempx.append(x_main[i][j])
+                tempy.append(y_main[i][j])
+        sampled_time.append(temp_time)
+        sampled_x.append(tempx)
+        sampled_y.append(tempy)
+        temp_time = []
+        tempx = []
+        tempy = []
+
+    return sampled_x, sampled_y, sampled_time
+        
 def maxAction(Q, state, actions): #This function spits out the action with the highest value
     values = np.array([Q[state,a] for a in actions])
     action = np.argmax(values)
     return actions[action]
 
-def sample_batches(xbatches, ybatches, num_of_batches):
-    y_samples = []
-    x_samples = []
+def sample_batches(xbatches, ybatches, num_of_batches): # This function will batch the data and randomly sample a certain number of batches
+    y_batches = []
+    x_batches = []
 
+    counter = 0
     for _ in range(num_of_batches):
-        sample = random.randint(0, (len(xbatches) - 1))
-        y_samples.append(ybatches[sample])
-        x_samples.append(xbatches[sample])
+        sample = random.randint(0, (len(xbatches) - 1)) 
+        if 0 in ybatches[sample]:
+            if counter < 600:
+                y_batches.append(ybatches[sample])
+                x_batches.append(xbatches[sample])
+                counter+=1
+        else:
+            y_batches.append(ybatches[sample])
+            x_batches.append(xbatches[sample])
+        
+    
+    return x_batches, y_batches
 
-    return x_samples, y_samples
-
-def tokenize(x):
+def tokenize(x): # This will tokenize the data for the Q-table
     
     temp2 = []
     vocab_x = []
@@ -117,10 +145,12 @@ if __name__ == '__main__':
     BATCH_SIZE = 40
     EPISODES = 30
     ITERATIONS = 3000
+    FREQ = 1
 
-    # load and batch the data
-    time, x, y = TrainingDataLoading()
-    time_xbatches, x_batches, y_batches = BatchData(time, x, y, BATCH_SIZE) 
+    # load, process, and batch the data
+    time, x, y = TrainingDataLoading() # Load the Data
+    sample_x, sample_y, sample_time  = SampleData(time, x, y, FREQ)
+    time_xbatches, x_batches, y_batches = BatchData(sample_time, x, y, BATCH_SIZE) 
     sample_xbatches, sample_ybatches = sample_batches(x_batches, y_batches, ITERATIONS)
     x_tokens, vocab_x = tokenize(sample_xbatches)
     
@@ -135,7 +165,7 @@ if __name__ == '__main__':
     totalRewards = np.zeros(ITERATIONS)
 
     for _ in range(EPISODES):
-        for i in range(ITERATIONS):
+        for i in range(len(x_tokens)):
             action_list = []
             done = False
             epRewards = 0
