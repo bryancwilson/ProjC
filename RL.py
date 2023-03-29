@@ -4,6 +4,10 @@ import csv
 import random
 import torch
 
+'''
+THIS FILE IS NULL!!!   
+'''
+
 class RL:
     def __init__(self, x):
         self.actionSpace = [0, 1, 2, 3]
@@ -97,7 +101,7 @@ def maxAction(Q, state, actions): #This function spits out the action with the h
     action = np.argmax(values)
     return actions[action]
 
-def sample_batches(xbatches, ybatches, num_of_batches): # This function will batch the data and randomly sample a certain number of batches
+def sample_batches(xbatches, ybatches, num_of_batches): # This function will select batches so that the given data is balanced
     y_batches = []
     x_batches = []
 
@@ -120,39 +124,43 @@ def tokenize(x): # This will tokenize the data for the Q-table
     
     temp2 = []
     vocab_x = []
+    vocab_lists = []
     tokens_x = []
     counter = 0
     for i in range(len(x)):
         for j in range(len(x[i])):
             if x[i][j] not in vocab_x:
                 vocab_x.append(counter)
+                vocab_lists.append(x[i][j])
                 temp2.append(counter)
                 counter+=1
         tokens_x.append(temp2)
     
         temp2 = []
 
-    return tokens_x, vocab_x
+    return tokens_x, vocab_x, vocab_lists
 
 if __name__ == '__main__':
-
+    
+#TRAINING
     # model hyperparameters
     ALPHA = 0.1
     GAMMA = 1.0
-    EPS = 1.0
+    EPS = 1.0 # for e-greedy 
 
     # other hyperparameters
     BATCH_SIZE = 40
     EPISODES = 30
     ITERATIONS = 3000
-    FREQ = 1
+    FREQ = 10
 
     # load, process, and batch the data
     time, x, y = TrainingDataLoading() # Load the Data
-    sample_x, sample_y, sample_time  = SampleData(time, x, y, FREQ)
-    time_xbatches, x_batches, y_batches = BatchData(sample_time, x, y, BATCH_SIZE) 
+    sample_x, sample_y, sample_time  = SampleData(time, x, y, FREQ) # sample the data points at set frequency because no observed frequent and/or abrupt jumps
+    x_tokens, vocab_x, vocab_lists = tokenize(sample_x) # this will change x lists to ID's in order to make them hashable. 
+    time_xbatches, x_batches, y_batches = BatchData(sample_time, x_tokens, y, BATCH_SIZE) # Batches data in size BATCH_SIZE
     sample_xbatches, sample_ybatches = sample_batches(x_batches, y_batches, ITERATIONS)
-    x_tokens, vocab_x = tokenize(sample_xbatches)
+    
     
 
     classifier = RL(vocab_x)
@@ -165,18 +173,18 @@ if __name__ == '__main__':
     totalRewards = np.zeros(ITERATIONS)
 
     for _ in range(EPISODES):
-        for i in range(len(x_tokens)):
+        for i in range(len(sample_xbatches)):
             action_list = []
             done = False
             epRewards = 0
-            observation = x_tokens[i][0]
+            observation = sample_xbatches[i][0]
             batch_ind = 0
-            while batch_ind != (BATCH_SIZE - 1): 
+            while batch_ind < (len(sample_xbatches[i]) - 1): 
                 rand = np.random.random()
                 action = maxAction(Q,observation, classifier.actionSpace) if rand < (1-EPS) \
                                     else classifier.actionSpaceSample()
                 action_list.append(action)
-                observation_ = x_tokens[i][batch_ind + 1]
+                observation_ = sample_xbatches[i][batch_ind + 1]
                 reward = classifier.loss(torch.tensor([sample_ybatches[i][batch_ind + 1]]), torch.tensor([action]))
                 epRewards += reward
 
@@ -192,4 +200,24 @@ if __name__ == '__main__':
             EPS = 0
         totalRewards[i] = epRewards
 
-print("Done")
+    print("Done")
+
+#TESTING
+
+def TestingDataLoading():
+        
+    subjects = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 7, 8]
+    versions = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 1, 2, 3, 1, 2, 1, 2, 3, 1, 2, 3, 1, 2, 3, 4, 1]
+    xtime_main = []
+    x_main = []
+    y_main = []
+
+    for i in range(len(subjects)):
+
+        x_df = pd.read_csv('TrainingData\subject_00'+str(subjects[i])+'_0'+str(versions[i])+'__x.csv')
+
+        x_np = x_df.values.tolist()
+
+        
+        x_main.append(x_np[:])
+        
